@@ -753,32 +753,37 @@ main() {
   # Detect project type
   detect_project
 
-  # Project name (pre-fill from deep detection)
+  # Project name: --name flag > deep detection > folder name
   local dir_name
   dir_name="$(basename "$TARGET_DIR")"
-  local default_name="${DEEP_PROJECT_NAME:-$dir_name}"
   if [[ -n "$ARG_NAME" ]]; then
     PROJECT_NAME="$ARG_NAME"
+  elif [[ -n "$DEEP_PROJECT_NAME" ]]; then
+    PROJECT_NAME="$DEEP_PROJECT_NAME"
   else
-    PROJECT_NAME=$(prompt_text "Project name" "$default_name")
+    PROJECT_NAME="$dir_name"
   fi
+  info "Project name: $PROJECT_NAME"
 
-  # Description (pre-fill from deep detection)
-  local default_desc="${DEEP_DESCRIPTION:-}"
+  # Description: --desc flag > deep detection > project name
   if [[ -n "$ARG_DESC" ]]; then
     DESCRIPTION="$ARG_DESC"
+  elif [[ -n "$DEEP_DESCRIPTION" ]]; then
+    DESCRIPTION="$DEEP_DESCRIPTION"
   else
-    DESCRIPTION=$(prompt_text "Description" "$default_desc")
+    DESCRIPTION="$PROJECT_NAME"
   fi
-  DESCRIPTION="${DESCRIPTION:-$PROJECT_NAME}"
+  info "Description: $DESCRIPTION"
 
-  # Preset selection
+  # Preset: --preset flag > detected preset
   if [[ -n "$ARG_PRESET" ]]; then
     SELECTED_PRESET="$ARG_PRESET"
-    info "Using preset: $SELECTED_PRESET"
+  elif [[ -n "$DETECTED_PRESET" ]]; then
+    SELECTED_PRESET="$DETECTED_PRESET"
   else
-    prompt_preset
+    SELECTED_PRESET="generic"
   fi
+  info "Using preset: $SELECTED_PRESET"
 
   # Validate preset exists (bundled or community)
   if [[ ! -f "$PRESETS_DIR/${SELECTED_PRESET}.sh" ]] && [[ ! -f "$COMMUNITY_PRESETS_DIR/${SELECTED_PRESET}.sh" ]]; then
