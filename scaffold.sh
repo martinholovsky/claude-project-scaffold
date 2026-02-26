@@ -100,6 +100,28 @@ write_if_missing() {
   return 0
 }
 
+# Always write file (scaffold-managed content like rules, commands, hooks)
+write_always() {
+  local filepath="$1"
+  local content="$2"
+  local dirpath
+  dirpath="$(dirname "$filepath")"
+
+  mkdir -p "$dirpath"
+  local verb="created"
+  if [[ -f "$filepath" ]]; then
+    verb="updated"
+  fi
+  printf '%s\n' "$content" > "$filepath"
+  if [[ "$verb" == "updated" ]]; then
+    printf "%b  updated%b %s\n" "$CYAN" "$NC" "$filepath"
+  else
+    created "$filepath"
+  fi
+  LAST_OP="$verb"
+  return 0
+}
+
 # Safe template substitution using Python
 # Usage: _tmpl_sub template_file output_file "KEY1=value1" "KEY2=value2" ...
 # Replaces all {{KEY}} placeholders with the corresponding values.
@@ -152,6 +174,28 @@ copy_if_missing() {
   cp "$src" "$dst"
   created "$dst"
   LAST_OP="created"
+  return 0
+}
+
+# Always copy file (scaffold-managed content like commands, hooks)
+copy_always() {
+  local src="$1"
+  local dst="$2"
+  local dirpath
+  dirpath="$(dirname "$dst")"
+
+  mkdir -p "$dirpath"
+  local verb="created"
+  if [[ -f "$dst" ]]; then
+    verb="updated"
+  fi
+  cp "$src" "$dst"
+  if [[ "$verb" == "updated" ]]; then
+    printf "%b  updated%b %s\n" "$CYAN" "$NC" "$dst"
+  else
+    created "$dst"
+  fi
+  LAST_OP="$verb"
   return 0
 }
 
@@ -490,16 +534,12 @@ scaffold() {
   # --- 1. .claude/rules/ ---
   local rules_created=0
 
-  # Troubleshooting (always created)
-  if [[ ! -f ".claude/rules/troubleshooting.md" ]]; then
-    mkdir -p .claude/rules
-    _tmpl_sub "$TEMPLATES_DIR/troubleshooting.md.tmpl" ".claude/rules/troubleshooting.md" \
-      "TROUBLESHOOTING_SECTIONS=$TROUBLESHOOTING_SECTIONS"
-    created ".claude/rules/troubleshooting.md"
-    rules_created=$((rules_created + 1))
-  else
-    skipped ".claude/rules/troubleshooting.md"
-  fi
+  # Troubleshooting (always written — scaffold-managed)
+  mkdir -p .claude/rules
+  _tmpl_sub "$TEMPLATES_DIR/troubleshooting.md.tmpl" ".claude/rules/troubleshooting.md" \
+    "TROUBLESHOOTING_SECTIONS=$TROUBLESHOOTING_SECTIONS"
+  created ".claude/rules/troubleshooting.md"
+  rules_created=$((rules_created + 1))
 
   # Preset-specific rules files (parse newline-delimited "filename|description" pairs)
   if [[ -n "$RULES_FILES" ]]; then
@@ -517,15 +557,13 @@ scaffold() {
 
 *TODO: Document the patterns, contracts, and conventions for this area.*"
       fi
-      write_if_missing ".claude/rules/$rule_file" "$content"
-      if [[ "$LAST_OP" == "created" ]]; then
-        rules_created=$((rules_created + 1))
-      fi
+      write_always ".claude/rules/$rule_file" "$content"
+      rules_created=$((rules_created + 1))
     done <<< "$RULES_FILES"
   fi
 
   # --- 2. .claude/hooks/ ---
-  copy_if_missing "$TEMPLATES_DIR/lint-on-edit.sh" ".claude/hooks/lint-on-edit.sh"
+  copy_always "$TEMPLATES_DIR/lint-on-edit.sh" ".claude/hooks/lint-on-edit.sh"
   chmod +x ".claude/hooks/lint-on-edit.sh" 2>/dev/null || true
 
   # --- 3. .claude/settings.local.json ---
@@ -626,10 +664,8 @@ with open('$ws_tmp') as f:
     while IFS= read -r cmd_file; do
       [[ -z "$cmd_file" ]] && continue
       if [[ -f "$COMMANDS_DIR/$cmd_file" ]]; then
-        copy_if_missing "$COMMANDS_DIR/$cmd_file" ".claude/commands/$cmd_file"
-        if [[ "$LAST_OP" == "created" ]]; then
-          commands_count=$((commands_count + 1))
-        fi
+        copy_always "$COMMANDS_DIR/$cmd_file" ".claude/commands/$cmd_file"
+        commands_count=$((commands_count + 1))
       else
         warn "Command template not found: $cmd_file"
       fi
