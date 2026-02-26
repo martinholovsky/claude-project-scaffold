@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-> Decisions that shape inventory-api's architecture. Each ADR captures context,
+> Decisions that shape my-api's architecture. Each ADR captures context,
 > alternatives considered, and rationale so future contributors understand *why*.
 
 ## Index

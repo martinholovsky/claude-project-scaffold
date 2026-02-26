@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backend Health Checks — inventory-api
+# Backend Health Checks — my-api
 # Run: ./scripts/smoke-backend.sh [--help]
 
 set -euo pipefail
@@ -28,7 +28,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   cat <<'EOF'
 Usage: smoke-backend.sh [--help]
 
-Backend Health Checks for inventory-api
+Backend Health Checks for my-api
 
 Exit codes:
   0 — all checks passed

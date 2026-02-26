@@ -1,6 +1,6 @@
-# CLAUDE.md — inventory-api
+# CLAUDE.md — my-api
 
-REST API for inventory management
+REST API for widgets
 
 ## Project Overview
 
@@ -9,7 +9,7 @@ FastAPI backend service. All API endpoints are under `/api/v1/`.
 ## Workspace Structure
 
 ```
-inventory-api/
+my-api/
 ├── CLAUDE.md
 ├── .claude/
 │   ├── rules/
@@ -17,8 +17,19 @@ inventory-api/
 │   │   ├── database.md
 │   │   ├── cross-service.md
 │   │   └── troubleshooting.md
-│   └── hooks/
-│       └── lint-on-edit.sh
+│   ├── hooks/
+│   │   └── lint-on-edit.sh
+│   ├── memory/
+│   │   ├── MEMORY.md
+│   │   ├── api-patterns.md
+│   │   ├── database-gotchas.md
+│   │   └── debugging.md
+│   └── commands/
+│       ├── review.md
+│       ├── test.md
+│       ├── plan.md
+│       ├── smoke.md
+│       └── lint.md
 ├── app/
 │   ├── main.py
 │   ├── routers/

@@ -71,8 +71,20 @@ WORKSPACE_STRUCTURE='{{PROJECT_NAME}}/
 │   │   ├── api-contracts.md     # Inter-service API contracts
 │   │   ├── cross-service.md     # Shared conventions
 │   │   └── troubleshooting.md   # Error playbook
-│   └── hooks/
-│       └── lint-on-edit.sh
+│   ├── hooks/
+│   │   └── lint-on-edit.sh
+│   ├── memory/
+│   │   ├── MEMORY.md
+│   │   ├── api-patterns.md
+│   │   ├── frontend-patterns.md
+│   │   ├── debugging.md
+│   │   └── cross-service.md
+│   └── commands/
+│       ├── review.md
+│       ├── test.md
+│       ├── plan.md
+│       ├── smoke.md
+│       └── lint.md
 ├── backend/
 │   ├── CLAUDE.md                # Backend-specific instructions (optional)
 │   └── ...
@@ -205,5 +217,237 @@ Verify the token expiry in jwt.io. Implement token refresh logic.
 ---
 
 *Add entries as you encounter and solve issues. Use the Symptom -> Diagnosis -> Fix format.*'
+
+# Memory topics: "filename|description" pairs
+MEMORY_TOPICS="api-patterns.md|API endpoint patterns and contract decisions
+frontend-patterns.md|UI components, state management, routing conventions
+debugging.md|Cross-service errors and solutions
+cross-service.md|Integration issues between frontend and backend"
+
+# Slash commands to scaffold
+COMMANDS="review.md
+test.md
+plan.md
+smoke.md
+lint.md"
+
+# --- Substantive Rules Content ---
+
+# shellcheck disable=SC2034
+RULES_CONTENT_API_CONTRACTS='# API Contracts
+
+> **When to use:** Adding or modifying API endpoints, implementing frontend API calls.
+>
+> **Read first for:** Any cross-service feature, new endpoint, data model changes.
+
+## Base URL
+
+- **Production:** `https://api.example.com/api/v1`
+- **Local dev:** `http://localhost:8000/api/v1` (backend), `http://localhost:3000` (frontend)
+
+## Authentication Flow
+
+```
+1. User clicks "Sign in" in frontend
+2. Frontend redirects to: GET /api/v1/auth/login
+3. Backend handles OAuth / credential verification
+4. Backend issues JWT, returns to frontend
+5. Frontend stores JWT, includes in Authorization header
+6. Backend validates JWT on every protected request
+```
+
+### Token format
+```json
+{
+  "sub": "user-id",
+  "email": "user@example.com",
+  "role": "user",
+  "exp": 1708303600
+}
+```
+
+## Request/Response Patterns
+
+### Creating a resource
+```
+POST /api/v1/resources
+Headers: Authorization: Bearer <jwt>
+Body: { "name": "...", "description": "..." }
+Response: 201 { "id": "...", "name": "...", ... }
+```
+
+### Listing (paginated)
+```
+GET /api/v1/resources?limit=50&offset=0&sort=created_at&order=desc
+Response: { "items": [...], "total": 123, "offset": 0, "limit": 50 }
+```
+
+## Error Response Format
+
+```json
+{
+  "detail": "Human-readable error message",
+  "code": "NOT_FOUND",
+  "status": 404
+}
+```
+
+## Frontend API Client
+
+```typescript
+// composables/useApi.ts
+const api = $fetch.create({
+  baseURL: "/api/v1",
+  headers: { Authorization: \`Bearer \${token.value}\` },
+  onResponseError({ response }) {
+    if (response.status === 401) navigateTo("/login")
+  },
+})
+```'
+
+# shellcheck disable=SC2034
+RULES_CONTENT_ARCHITECTURE='# System Architecture
+
+> **When to use:** Understanding service boundaries, planning cross-service features.
+>
+> **Read first for:** Any task spanning backend + frontend, auth changes, new service design.
+
+## High-Level Architecture
+
+```
+          Users
+            |
+       [API Gateway / Proxy]
+            |
+     +------+------+
+     |             |
+  Backend       Frontend
+  (API)         (SPA/SSR)
+     |
+  +--+--+
+  |     |
+  DB  Queue
+```
+
+## Service Boundaries
+
+| Concern | Owner |
+|---------|-------|
+| Authentication, authorization | Backend |
+| Data validation (business rules) | Backend |
+| Input sanitization (UI) | Frontend |
+| API response formatting | Backend |
+| Routing, page rendering | Frontend |
+| State management | Frontend |
+
+**Rule:** All data flows through the backend API. The frontend NEVER accesses the
+database or message queue directly. The backend is the security boundary.
+
+## Data Flow
+
+```
+Frontend → API Request → Backend → Database
+Frontend ← API Response ← Backend ← Database
+```
+
+For real-time updates:
+```
+Backend → WebSocket/SSE → Frontend
+```
+
+## Environment Separation
+
+| Environment | Backend | Frontend |
+|-------------|---------|----------|
+| Development | localhost:8000 | localhost:3000 |
+| Staging | api.staging.example.com | staging.example.com |
+| Production | api.example.com | example.com |'
+
+# shellcheck disable=SC2034
+RULES_CONTENT_CROSS_SERVICE='# Cross-Service Patterns
+
+> **When to use:** Ensuring consistency between frontend and backend.
+>
+> **Read first for:** Shared type definitions, error handling, date formats, env vars.
+
+## Shared Types
+
+Keep types in sync between frontend and backend. When changing an API response shape:
+1. Update the backend schema/model
+2. Update the frontend TypeScript type
+3. Update any API contract documentation
+
+## Date/Time Format
+
+All timestamps use **ISO 8601 UTC**: `2026-01-01T12:00:00Z`
+
+- Backend: `datetime.now(timezone.utc).isoformat()`
+- Frontend: `new Date().toISOString()`
+
+## ID Format
+
+IDs are opaque strings. The frontend never parses or constructs IDs.
+
+## Pagination
+
+All list endpoints return:
+```json
+{ "items": [...], "total": 1234, "offset": 0, "limit": 50 }
+```
+
+Query params: `?limit=50&offset=0&sort=created_at&order=desc`
+
+## Error Handling
+
+Backend returns:
+```json
+{ "detail": "Message", "code": "ERROR_CODE", "status": 404 }
+```
+
+Frontend handles:
+```typescript
+try {
+  const data = await api("/resources", { method: "POST", body })
+} catch (error) {
+  if (error.status === 422) {
+    // Show field-level validation errors
+  } else if (error.status === 429) {
+    // Rate limited — show retry message
+  } else {
+    toast.error(error.data?.detail || "Something went wrong")
+  }
+}
+```
+
+## CORS Configuration
+
+Backend must allow frontend origin:
+```python
+# FastAPI
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+## Environment Variables
+
+### Backend
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Database connection string |
+| `SECRET_KEY` | JWT signing key |
+| `CORS_ORIGINS` | Allowed frontend origins |
+
+### Frontend
+| Variable | Description |
+|----------|-------------|
+| `API_BASE_URL` | Backend API URL |
+| `PUBLIC_URL` | Frontend public URL |
+
+**Secrets are NEVER exposed to the frontend.** All secret-dependent operations go through the backend.'
 
 LINT_LANGUAGES="Python (ruff) or TypeScript/JS (eslint + prettier), YAML, JSON, Shell (shellcheck)"

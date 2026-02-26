@@ -14,6 +14,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/templates"
 PRESETS_DIR="$SCRIPT_DIR/presets"
+COMMANDS_DIR="$TEMPLATES_DIR/commands"
+COMMUNITY_PRESETS_DIR="$HOME/.claude-scaffold/presets"
 TARGET_DIR="$(pwd)"
 
 # --- Colors ---
@@ -48,6 +50,16 @@ WORKSPACE_STRUCTURE=""
 SMOKE_SCRIPTS=""        # newline-delimited "filename|title|checks_var" entries
 TROUBLESHOOTING_SECTIONS=""
 LINT_LANGUAGES=""
+MEMORY_TOPICS=""        # newline-delimited "filename|description" pairs for memory topic files
+COMMANDS=""             # newline-delimited command filenames to copy from templates/commands/
+
+# Deep detection results (populated by deep_detect)
+DEEP_PROJECT_NAME=""
+DEEP_DESCRIPTION=""
+DEEP_FRAMEWORK=""
+DEEP_DEPENDENCIES=""
+DEEP_TEST_FRAMEWORK=""
+DEEP_PKG_MANAGER=""
 
 # --- Helpers ---
 
@@ -143,13 +155,148 @@ copy_if_missing() {
   return 0
 }
 
+# --- Deep Detection ---
+
+deep_detect() {
+  # Parse pyproject.toml for Python projects
+  if [[ -f "$TARGET_DIR/pyproject.toml" ]]; then
+    local py_result
+    py_result=$(python3 -c "
+import sys
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        sys.exit(0)
+with open('$TARGET_DIR/pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+proj = data.get('project', {})
+name = proj.get('name', '')
+desc = proj.get('description', '')
+deps = [d.split('>')[0].split('<')[0].split('=')[0].split('[')[0].strip().lower() for d in proj.get('dependencies', [])]
+has_pytest = 'tool' in data and 'pytest' in data['tool']
+print(f'NAME={name}')
+print(f'DESC={desc}')
+print(f'DEPS={\"|\".join(deps)}')
+print(f'PYTEST={has_pytest}')
+" 2>/dev/null || true)
+
+    if [[ -n "$py_result" ]]; then
+      DEEP_PROJECT_NAME=$(echo "$py_result" | grep '^NAME=' | cut -d= -f2-)
+      DEEP_DESCRIPTION=$(echo "$py_result" | grep '^DESC=' | cut -d= -f2-)
+      local deps_str
+      deps_str=$(echo "$py_result" | grep '^DEPS=' | cut -d= -f2-)
+      DEEP_DEPENDENCIES="$deps_str"
+      local has_pytest
+      has_pytest=$(echo "$py_result" | grep '^PYTEST=' | cut -d= -f2-)
+
+      # Detect framework
+      if echo "$deps_str" | grep -qi "fastapi"; then
+        DEEP_FRAMEWORK="fastapi"
+      elif echo "$deps_str" | grep -qi "django"; then
+        DEEP_FRAMEWORK="django"
+      elif echo "$deps_str" | grep -qi "flask"; then
+        DEEP_FRAMEWORK="flask"
+      fi
+
+      if [[ "$has_pytest" == "True" ]]; then
+        DEEP_TEST_FRAMEWORK="pytest"
+      fi
+    fi
+  fi
+
+  # Parse package.json for Node.js projects
+  if [[ -f "$TARGET_DIR/package.json" ]]; then
+    local js_result
+    js_result=$(python3 -c "
+import json, sys
+with open('$TARGET_DIR/package.json') as f:
+    data = json.load(f)
+name = data.get('name', '')
+desc = data.get('description', '')
+deps = list(data.get('dependencies', {}).keys())
+dev_deps = list(data.get('devDependencies', {}).keys())
+all_deps = deps + dev_deps
+scripts = list(data.get('scripts', {}).keys())
+print(f'NAME={name}')
+print(f'DESC={desc}')
+print(f'DEPS={\"|\".join(all_deps)}')
+print(f'SCRIPTS={\"|\".join(scripts)}')
+" 2>/dev/null || true)
+
+    if [[ -n "$js_result" ]]; then
+      DEEP_PROJECT_NAME=$(echo "$js_result" | grep '^NAME=' | cut -d= -f2-)
+      DEEP_DESCRIPTION=$(echo "$js_result" | grep '^DESC=' | cut -d= -f2-)
+      local deps_str
+      deps_str=$(echo "$js_result" | grep '^DEPS=' | cut -d= -f2-)
+      DEEP_DEPENDENCIES="$deps_str"
+
+      # Detect framework
+      if echo "$deps_str" | grep -qi "nuxt"; then
+        DEEP_FRAMEWORK="nuxt"
+      elif echo "$deps_str" | grep -qi "next"; then
+        DEEP_FRAMEWORK="next"
+      elif echo "$deps_str" | grep -qi "react"; then
+        DEEP_FRAMEWORK="react"
+      elif echo "$deps_str" | grep -qi "vue"; then
+        DEEP_FRAMEWORK="vue"
+      elif echo "$deps_str" | grep -qi "svelte"; then
+        DEEP_FRAMEWORK="svelte"
+      elif echo "$deps_str" | grep -qi "express"; then
+        DEEP_FRAMEWORK="express"
+      elif echo "$deps_str" | grep -qi "fastify"; then
+        DEEP_FRAMEWORK="fastify"
+      elif echo "$deps_str" | grep -qi "hono"; then
+        DEEP_FRAMEWORK="hono"
+      fi
+
+      # Detect test framework
+      if echo "$deps_str" | grep -qi "vitest"; then
+        DEEP_TEST_FRAMEWORK="vitest"
+      elif echo "$deps_str" | grep -qi "jest"; then
+        DEEP_TEST_FRAMEWORK="jest"
+      fi
+
+      # Detect package manager
+      if [[ -f "$TARGET_DIR/bun.lockb" ]] || [[ -f "$TARGET_DIR/bun.lock" ]]; then
+        DEEP_PKG_MANAGER="bun"
+      elif [[ -f "$TARGET_DIR/pnpm-lock.yaml" ]]; then
+        DEEP_PKG_MANAGER="pnpm"
+      elif [[ -f "$TARGET_DIR/yarn.lock" ]]; then
+        DEEP_PKG_MANAGER="yarn"
+      else
+        DEEP_PKG_MANAGER="npm"
+      fi
+    fi
+  fi
+
+  # Report findings
+  if [[ -n "$DEEP_PROJECT_NAME" ]]; then
+    info "Deep detect: name=$DEEP_PROJECT_NAME"
+  fi
+  if [[ -n "$DEEP_FRAMEWORK" ]]; then
+    info "Deep detect: framework=$DEEP_FRAMEWORK"
+  fi
+  if [[ -n "$DEEP_TEST_FRAMEWORK" ]]; then
+    info "Deep detect: test=$DEEP_TEST_FRAMEWORK"
+  fi
+  if [[ -n "$DEEP_PKG_MANAGER" ]]; then
+    info "Deep detect: pkg=$DEEP_PKG_MANAGER"
+  fi
+}
+
 # --- Detection ---
 
 detect_project() {
   DETECTED_PRESET=""
 
+  # Run deep detection first
+  deep_detect
+
   if [[ -f "$TARGET_DIR/pyproject.toml" ]] || [[ -f "$TARGET_DIR/requirements.txt" ]]; then
-    if grep -q "fastapi\|FastAPI" "$TARGET_DIR/pyproject.toml" "$TARGET_DIR/requirements.txt" 2>/dev/null; then
+    if [[ "$DEEP_FRAMEWORK" == "fastapi" ]] || grep -q "fastapi\|FastAPI" "$TARGET_DIR/pyproject.toml" "$TARGET_DIR/requirements.txt" 2>/dev/null; then
       DETECTED_PRESET="python-fastapi"
       info "Detected: FastAPI project (pyproject.toml/requirements.txt)"
       return
@@ -221,6 +368,26 @@ prompt_preset() {
     "Kubernetes/GitOps infrastructure"
   )
 
+  # Discover community presets
+  if [[ -d "$COMMUNITY_PRESETS_DIR" ]]; then
+    local community_file
+    for community_file in "$COMMUNITY_PRESETS_DIR"/*.sh; do
+      [[ -f "$community_file" ]] || continue
+      local cname cdesc
+      cname=$(basename "$community_file" .sh)
+      # Skip if same name as bundled preset
+      local is_dup=false
+      for p in "${presets[@]}"; do
+        [[ "$p" == "$cname" ]] && is_dup=true && break
+      done
+      $is_dup && continue
+      # Extract description from preset file
+      cdesc=$(grep '^preset_description=' "$community_file" 2>/dev/null | head -1 | sed 's/^preset_description="//' | sed 's/"$//' || echo "Community preset")
+      presets+=("$cname")
+      descriptions+=("$cdesc")
+    done
+  fi
+
   printf "\n%b? %bSelect preset:\n" "$BOLD" "$NC"
 
   local i
@@ -231,7 +398,12 @@ prompt_preset() {
       marker="${GREEN}> "
       suffix=" (detected)${NC}"
     fi
-    printf "  %b%d) %-22s %b%s%b%b\n" "$marker" "$((i + 1))" "${presets[$i]}" "$DIM" "${descriptions[$i]}" "$suffix" "$NC"
+    # Mark community presets
+    local community_tag=""
+    if [[ $i -ge 5 ]]; then
+      community_tag=" ${DIM}[community]${NC}"
+    fi
+    printf "  %b%d) %-22s %b%s%b%b%b\n" "$marker" "$((i + 1))" "${presets[$i]}" "$DIM" "${descriptions[$i]}" "$suffix" "$community_tag" "$NC"
   done
 
   local default_num=1
@@ -257,13 +429,55 @@ prompt_preset() {
   info "Using preset: $SELECTED_PRESET"
 }
 
+# --- List Presets ---
+
+list_presets() {
+  printf "%b%bAvailable Presets%b\n\n" "$BOLD" "$CYAN" "$NC"
+
+  printf "%b  Bundled:%b\n" "$BOLD" "$NC"
+  local preset_file
+  for preset_file in "$PRESETS_DIR"/*.sh; do
+    [[ -f "$preset_file" ]] || continue
+    local pname pdesc
+    pname=$(basename "$preset_file" .sh)
+    pdesc=$(grep '^preset_description=' "$preset_file" 2>/dev/null | head -1 | sed 's/^preset_description="//' | sed 's/"$//')
+    printf "    %-22s %b%s%b\n" "$pname" "$DIM" "$pdesc" "$NC"
+  done
+
+  if [[ -d "$COMMUNITY_PRESETS_DIR" ]]; then
+    local has_community=false
+    for preset_file in "$COMMUNITY_PRESETS_DIR"/*.sh; do
+      [[ -f "$preset_file" ]] || continue
+      if ! $has_community; then
+        printf "\n%b  Community (%s):%b\n" "$BOLD" "$COMMUNITY_PRESETS_DIR" "$NC"
+        has_community=true
+      fi
+      local pname pdesc
+      pname=$(basename "$preset_file" .sh)
+      pdesc=$(grep '^preset_description=' "$preset_file" 2>/dev/null | head -1 | sed 's/^preset_description="//' | sed 's/"$//')
+      printf "    %-22s %b%s%b\n" "$pname" "$DIM" "$pdesc" "$NC"
+    done
+    if ! $has_community; then
+      printf "\n%b  Community:%b %bNo custom presets found in %s%b\n" "$BOLD" "$NC" "$DIM" "$COMMUNITY_PRESETS_DIR" "$NC"
+    fi
+  else
+    printf "\n%b  Community:%b %bCreate presets in %s%b\n" "$BOLD" "$NC" "$DIM" "$COMMUNITY_PRESETS_DIR" "$NC"
+  fi
+  printf "\n"
+  exit 0
+}
+
 # --- Scaffolding ---
 
 scaffold() {
   local preset_file="$PRESETS_DIR/${SELECTED_PRESET}.sh"
   if [[ ! -f "$preset_file" ]]; then
-    printf "%bERROR:%b Preset file not found: %s\n" "$RED" "$NC" "$preset_file" >&2
-    exit 1
+    # Check community presets
+    preset_file="$COMMUNITY_PRESETS_DIR/${SELECTED_PRESET}.sh"
+    if [[ ! -f "$preset_file" ]]; then
+      printf "%bERROR:%b Preset file not found: %s\n" "$RED" "$NC" "${SELECTED_PRESET}.sh" >&2
+      exit 1
+    fi
   fi
 
   # Source the preset (sets all global variables)
@@ -291,13 +505,18 @@ scaffold() {
     local line rule_file rule_desc
     while IFS='|' read -r rule_file rule_desc; do
       [[ -z "$rule_file" ]] && continue
-      local stub
-      stub="# ${rule_file%.md}
+      # Check for substantive content variable: RULES_CONTENT_API_CONTRACTS for api-contracts.md
+      local var_name="RULES_CONTENT_$(echo "${rule_file%.md}" | tr '[:lower:]-' '[:upper:]_')"
+      local content="${!var_name:-}"
+      if [[ -z "$content" ]]; then
+        # Fall back to stub
+        content="# ${rule_file%.md}
 
 > **When to use:** ${rule_desc}
 
 *TODO: Document the patterns, contracts, and conventions for this area.*"
-      write_if_missing ".claude/rules/$rule_file" "$stub"
+      fi
+      write_if_missing ".claude/rules/$rule_file" "$content"
       if [[ "$LAST_OP" == "created" ]]; then
         rules_created=$((rules_created + 1))
       fi
@@ -353,7 +572,56 @@ with open('$ws_tmp') as f:
 
   copy_if_missing "$TEMPLATES_DIR/adr-template.md" "docs/decisions/adr-template.md"
 
-  # --- 7. Smoke test scripts ---
+  # --- 7. .claude/memory/ ---
+  local memory_count=0
+  if [[ -n "$MEMORY_TOPICS" ]]; then
+    # Build topic table for MEMORY.md template
+    local topic_table=""
+    local topic_file topic_desc
+    while IFS='|' read -r topic_file topic_desc; do
+      [[ -z "$topic_file" ]] && continue
+      topic_table="${topic_table}| \`${topic_file}\` | ${topic_desc} |
+"
+      # Create empty topic file
+      write_if_missing ".claude/memory/$topic_file" "# ${topic_file%.md}
+
+*Add notes as you work. This file persists across sessions.*"
+      if [[ "$LAST_OP" == "created" ]]; then
+        memory_count=$((memory_count + 1))
+      fi
+    done <<< "$MEMORY_TOPICS"
+
+    # Create MEMORY.md from template
+    if [[ ! -f ".claude/memory/MEMORY.md" ]]; then
+      mkdir -p .claude/memory
+      _tmpl_sub "$TEMPLATES_DIR/memory-index.md.tmpl" ".claude/memory/MEMORY.md" \
+        "PROJECT_NAME=$PROJECT_NAME" \
+        "MEMORY_TOPIC_TABLE=$topic_table"
+      created ".claude/memory/MEMORY.md"
+      memory_count=$((memory_count + 1))
+    else
+      skipped ".claude/memory/MEMORY.md"
+    fi
+  fi
+
+  # --- 8. .claude/commands/ ---
+  local commands_count=0
+  if [[ -n "$COMMANDS" ]]; then
+    local cmd_file
+    while IFS= read -r cmd_file; do
+      [[ -z "$cmd_file" ]] && continue
+      if [[ -f "$COMMANDS_DIR/$cmd_file" ]]; then
+        copy_if_missing "$COMMANDS_DIR/$cmd_file" ".claude/commands/$cmd_file"
+        if [[ "$LAST_OP" == "created" ]]; then
+          commands_count=$((commands_count + 1))
+        fi
+      else
+        warn "Command template not found: $cmd_file"
+      fi
+    done <<< "$COMMANDS"
+  fi
+
+  # --- 9. Smoke test scripts ---
   local smoke_count=0
   if [[ -n "$SMOKE_SCRIPTS" ]]; then
     local script_name script_title checks_var
@@ -395,6 +663,12 @@ warn "No checks implemented yet"'
   printf "  %bCLAUDE.md%b                       Project instructions with Plan Protocol + Context Groups\n" "$CYAN" "$NC"
   printf "  %b.claude/rules/%b                  %d rule files (troubleshooting + preset-specific)\n" "$CYAN" "$NC" "$rules_created"
   printf "  %b.claude/hooks/lint-on-edit.sh%b   Auto-lint on Write/Edit\n" "$CYAN" "$NC"
+  if [[ "$memory_count" -gt 0 ]]; then
+    printf "  %b.claude/memory/%b                 MEMORY.md index + %d topic files\n" "$CYAN" "$NC" "$memory_count"
+  fi
+  if [[ "$commands_count" -gt 0 ]]; then
+    printf "  %b.claude/commands/%b               %d slash commands (/review, /test, etc.)\n" "$CYAN" "$NC" "$commands_count"
+  fi
   printf "  %bdocs/plans/.plan-template.md%b    Session-resilient plan template\n" "$CYAN" "$NC"
   printf "  %bdocs/decisions/%b                 ADR index + template\n" "$CYAN" "$NC"
   if [[ "$smoke_count" -gt 0 ]]; then
@@ -403,12 +677,15 @@ warn "No checks implemented yet"'
 
   printf "\n%bNext steps:%b\n" "$BOLD" "$NC"
   printf "  1. Review and customize %bCLAUDE.md%b\n" "$CYAN" "$NC"
-  printf "  2. Fill in rule stubs in %b.claude/rules/%b\n" "$CYAN" "$NC"
+  printf "  2. Customize rules in %b.claude/rules/%b for your project\n" "$CYAN" "$NC"
   printf "  3. Add your architecture diagram to %bCLAUDE.md%b\n" "$CYAN" "$NC"
   printf "  4. Create your first ADR:\n"
   printf "     %bcp docs/decisions/adr-template.md docs/decisions/001-your-decision.md%b\n" "$DIM" "$NC"
   printf "  5. Start a plan:\n"
   printf "     %bcp docs/plans/.plan-template.md docs/plans/plan-feature-name.md%b\n" "$DIM" "$NC"
+  if [[ "$commands_count" -gt 0 ]]; then
+    printf "  6. Try a slash command: %b/review%b, %b/test%b, %b/plan <task>%b\n" "$CYAN" "$NC" "$CYAN" "$NC" "$CYAN" "$NC"
+  fi
   printf "\n"
 }
 
@@ -425,7 +702,8 @@ Options:
   --name NAME        Project name (default: directory name)
   --desc DESCRIPTION Project description
   --preset PRESET    Skip interactive selection (generic, python-fastapi,
-                     typescript-node, fullstack, kubernetes-gitops)
+                     typescript-node, fullstack, kubernetes-gitops, or custom)
+  --list-presets     List all available presets (bundled + community)
   --help, -h         Show this help
 
 Examples:
@@ -437,6 +715,13 @@ Examples:
 
   # Minimal
   scaffold.sh --preset generic --name my-project
+
+  # List available presets
+  scaffold.sh --list-presets
+
+Community presets:
+  Place custom preset .sh files in ~/.claude-scaffold/presets/
+  They appear alongside bundled presets in the interactive menu.
 EOF
   exit 0
 }
@@ -451,6 +736,7 @@ while [[ $# -gt 0 ]]; do
     --name)   ARG_NAME="$2"; shift 2 ;;
     --desc)   ARG_DESC="$2"; shift 2 ;;
     --preset) ARG_PRESET="$2"; shift 2 ;;
+    --list-presets) list_presets ;;
     --help|-h) show_help ;;
     *) printf "%bUnknown option: %s%b\n" "$RED" "$1" "$NC"; show_help ;;
   esac
@@ -466,20 +752,22 @@ main() {
   # Detect project type
   detect_project
 
-  # Project name
+  # Project name (pre-fill from deep detection)
   local dir_name
   dir_name="$(basename "$TARGET_DIR")"
+  local default_name="${DEEP_PROJECT_NAME:-$dir_name}"
   if [[ -n "$ARG_NAME" ]]; then
     PROJECT_NAME="$ARG_NAME"
   else
-    PROJECT_NAME=$(prompt_text "Project name" "$dir_name")
+    PROJECT_NAME=$(prompt_text "Project name" "$default_name")
   fi
 
-  # Description
+  # Description (pre-fill from deep detection)
+  local default_desc="${DEEP_DESCRIPTION:-}"
   if [[ -n "$ARG_DESC" ]]; then
     DESCRIPTION="$ARG_DESC"
   else
-    DESCRIPTION=$(prompt_text "Description" "")
+    DESCRIPTION=$(prompt_text "Description" "$default_desc")
   fi
   DESCRIPTION="${DESCRIPTION:-$PROJECT_NAME}"
 
@@ -491,9 +779,9 @@ main() {
     prompt_preset
   fi
 
-  # Validate preset exists
-  if [[ ! -f "$PRESETS_DIR/${SELECTED_PRESET}.sh" ]]; then
-    printf "%bERROR:%b Unknown preset '%s'. Available: generic, python-fastapi, typescript-node, fullstack, kubernetes-gitops\n" "$RED" "$NC" "$SELECTED_PRESET" >&2
+  # Validate preset exists (bundled or community)
+  if [[ ! -f "$PRESETS_DIR/${SELECTED_PRESET}.sh" ]] && [[ ! -f "$COMMUNITY_PRESETS_DIR/${SELECTED_PRESET}.sh" ]]; then
+    printf "%bERROR:%b Unknown preset '%s'. Run --list-presets to see available presets.\n" "$RED" "$NC" "$SELECTED_PRESET" >&2
     exit 1
   fi
 
