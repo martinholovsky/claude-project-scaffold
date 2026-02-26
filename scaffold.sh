@@ -533,7 +533,23 @@ scaffold() {
 
   # --- 4. CLAUDE.md ---
   # Use Python for template substitution (bash ${//} corrupts & in replacements)
+  local should_write_claude_md=false
   if [[ ! -f "CLAUDE.md" ]]; then
+    should_write_claude_md=true
+  else
+    # Check if existing CLAUDE.md is a bare stub (under 30 lines = likely just a title + basics)
+    local line_count
+    line_count=$(wc -l < "CLAUDE.md" | tr -d ' ')
+    if [[ "$line_count" -lt 30 ]]; then
+      cp "CLAUDE.md" "CLAUDE.md.backup"
+      warn "Existing CLAUDE.md is only ${line_count} lines — upgrading (backup: CLAUDE.md.backup)"
+      should_write_claude_md=true
+    else
+      skipped "CLAUDE.md (${line_count} lines — looks substantial)"
+    fi
+  fi
+
+  if $should_write_claude_md; then
     # Pre-process workspace structure to replace inner {{PROJECT_NAME}}
     local ws_tmp
     ws_tmp=$(mktemp)
@@ -554,8 +570,6 @@ with open('$ws_tmp') as f:
       "WORKFLOW=$WORKFLOW" \
       "WORKSPACE_STRUCTURE=$ws"
     created "CLAUDE.md"
-  else
-    skipped "CLAUDE.md"
   fi
 
   # --- 5. docs/plans/.plan-template.md ---
