@@ -5,6 +5,8 @@
 Most Claude Code setups are incomplete. You get a bare `CLAUDE.md`, sessions freeze mid-task and lose all context, and you repeat the same debugging conversations over and over. This scaffold fixes that — one command generates everything Claude Code can use to work smarter across sessions.
 
 ```bash
+git clone https://github.com/martinholovsky/claude-project-scaffold.git ~/claude-project-scaffold
+
 cd ~/my-project
 ~/claude-project-scaffold/scaffold.sh
 ```
