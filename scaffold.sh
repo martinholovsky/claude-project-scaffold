@@ -740,6 +740,108 @@ warn "No checks implemented yet"'
   printf "\n"
 }
 
+# --- Clean (remove scaffold files) ---
+
+clean_scaffold() {
+  printf "\n"
+  printf "%bClaude Project Scaffold — Clean%b\n" "$BOLD" "$NC"
+  printf "Removing scaffold-generated files from: %b%s%b\n\n" "$CYAN" "$TARGET_DIR" "$NC"
+
+  local removed=0
+
+  # CLAUDE.md
+  if [[ -f "CLAUDE.md" ]]; then
+    rm -f "CLAUDE.md"
+    printf "  %bremoved%b CLAUDE.md\n" "$RED" "$NC"
+    removed=$((removed + 1))
+  fi
+  rm -f "CLAUDE.md.backup"
+
+  # .claude/rules/
+  if [[ -d ".claude/rules" ]]; then
+    local count
+    count=$(find .claude/rules -type f | wc -l | tr -d ' ')
+    rm -rf .claude/rules
+    printf "  %bremoved%b .claude/rules/ (%s files)\n" "$RED" "$NC" "$count"
+    removed=$((removed + count))
+  fi
+
+  # .claude/commands/
+  if [[ -d ".claude/commands" ]]; then
+    local count
+    count=$(find .claude/commands -type f | wc -l | tr -d ' ')
+    rm -rf .claude/commands
+    printf "  %bremoved%b .claude/commands/ (%s files)\n" "$RED" "$NC" "$count"
+    removed=$((removed + count))
+  fi
+
+  # .claude/hooks/
+  if [[ -d ".claude/hooks" ]]; then
+    local count
+    count=$(find .claude/hooks -type f | wc -l | tr -d ' ')
+    rm -rf .claude/hooks
+    printf "  %bremoved%b .claude/hooks/ (%s files)\n" "$RED" "$NC" "$count"
+    removed=$((removed + count))
+  fi
+
+  # .claude/memory/
+  if [[ -d ".claude/memory" ]]; then
+    local count
+    count=$(find .claude/memory -type f | wc -l | tr -d ' ')
+    rm -rf .claude/memory
+    printf "  %bremoved%b .claude/memory/ (%s files)\n" "$RED" "$NC" "$count"
+    removed=$((removed + count))
+  fi
+
+  # .claude/settings.local.json
+  if [[ -f ".claude/settings.local.json" ]]; then
+    rm -f ".claude/settings.local.json"
+    printf "  %bremoved%b .claude/settings.local.json\n" "$RED" "$NC"
+    removed=$((removed + 1))
+  fi
+
+  # Remove .claude/ if empty
+  rmdir .claude 2>/dev/null && printf "  %bremoved%b .claude/ (empty)\n" "$RED" "$NC"
+
+  # docs/plans/.plan-template.md
+  if [[ -f "docs/plans/.plan-template.md" ]]; then
+    rm -f "docs/plans/.plan-template.md"
+    printf "  %bremoved%b docs/plans/.plan-template.md\n" "$RED" "$NC"
+    removed=$((removed + 1))
+  fi
+
+  # docs/decisions/adr-template.md + index.md
+  if [[ -f "docs/decisions/adr-template.md" ]]; then
+    rm -f "docs/decisions/adr-template.md"
+    printf "  %bremoved%b docs/decisions/adr-template.md\n" "$RED" "$NC"
+    removed=$((removed + 1))
+  fi
+  if [[ -f "docs/decisions/index.md" ]]; then
+    rm -f "docs/decisions/index.md"
+    printf "  %bremoved%b docs/decisions/index.md\n" "$RED" "$NC"
+    removed=$((removed + 1))
+  fi
+
+  # scripts/ smoke tests (only scaffold-generated ones)
+  local script
+  for script in scripts/smoke-*.sh; do
+    if [[ -f "$script" ]]; then
+      rm -f "$script"
+      printf "  %bremoved%b %s\n" "$RED" "$NC" "$script"
+      removed=$((removed + 1))
+    fi
+  done
+
+  # Clean up empty dirs
+  rmdir docs/plans 2>/dev/null
+  rmdir docs/decisions 2>/dev/null
+  rmdir docs 2>/dev/null
+  rmdir scripts 2>/dev/null
+
+  printf "\n%bDone.%b Removed %d scaffold files.\n\n" "$GREEN" "$NC" "$removed"
+  exit 0
+}
+
 # --- CLI Argument Parsing ---
 
 show_help() {
@@ -755,17 +857,18 @@ Options:
   --preset PRESET    Skip interactive selection (generic, python-fastapi,
                      typescript-node, fullstack, kubernetes-gitops, or custom)
   --list-presets     List all available presets (bundled + community)
+  --clean            Remove all scaffold-generated files
   --help, -h         Show this help
 
 Examples:
-  # Interactive (recommended)
+  # Auto-detect and scaffold
   cd ~/my-project && ~/claude-project-scaffold/scaffold.sh
 
   # Non-interactive
   scaffold.sh --preset python-fastapi --name my-api --desc "REST API for widgets"
 
-  # Minimal
-  scaffold.sh --preset generic --name my-project
+  # Remove scaffold files
+  scaffold.sh --clean
 
   # List available presets
   scaffold.sh --list-presets
@@ -788,6 +891,7 @@ while [[ $# -gt 0 ]]; do
     --desc)   ARG_DESC="$2"; shift 2 ;;
     --preset) ARG_PRESET="$2"; shift 2 ;;
     --list-presets) list_presets ;;
+    --clean) clean_scaffold ;;
     --help|-h) show_help ;;
     *) printf "%bUnknown option: %s%b\n" "$RED" "$1" "$NC"; show_help ;;
   esac
