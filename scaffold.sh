@@ -66,10 +66,10 @@ DEEP_PKG_MANAGER=""
 print_banner() {
   printf "\n%b%b" "${CYAN}${BOLD}" ""
   cat <<'BANNER'
-  ╭──────────────────────────────────╮
-  │   Claude Project Scaffold        │
-  │   Session-resilient AI scaffolding│
-  ╰──────────────────────────────────╯
+  ╭────────────────────────────────────╮
+  │  Claude Project Scaffold           │
+  │  Session-resilient AI scaffolding  │
+  ╰────────────────────────────────────╯
 BANNER
   printf "%b\n" "${NC}"
 }
