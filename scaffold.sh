@@ -379,6 +379,60 @@ detect_project() {
     return
   fi
 
+  # Fallback: scan file extensions to detect language
+  local py_count ts_count js_count rs_count go_count rb_count java_count
+  py_count=$(find "$TARGET_DIR" -maxdepth 3 -name "*.py" -not -path "*/.venv/*" -not -path "*/node_modules/*" 2>/dev/null | head -20 | wc -l | tr -d ' ')
+  ts_count=$(find "$TARGET_DIR" -maxdepth 3 -name "*.ts" -o -name "*.tsx" 2>/dev/null | head -20 | wc -l | tr -d ' ')
+  js_count=$(find "$TARGET_DIR" -maxdepth 3 -name "*.js" -o -name "*.jsx" 2>/dev/null | head -20 | wc -l | tr -d ' ')
+  rs_count=$(find "$TARGET_DIR" -maxdepth 3 -name "*.rs" 2>/dev/null | head -20 | wc -l | tr -d ' ')
+  go_count=$(find "$TARGET_DIR" -maxdepth 3 -name "*.go" 2>/dev/null | head -20 | wc -l | tr -d ' ')
+  rb_count=$(find "$TARGET_DIR" -maxdepth 3 -name "*.rb" 2>/dev/null | head -20 | wc -l | tr -d ' ')
+  java_count=$(find "$TARGET_DIR" -maxdepth 3 -name "*.java" -o -name "*.kt" 2>/dev/null | head -20 | wc -l | tr -d ' ')
+
+  # Also check for Dockerfiles, k8s manifests, Makefiles
+  local k8s_count
+  k8s_count=$(find "$TARGET_DIR" -maxdepth 3 \( -name "*.yaml" -o -name "*.yml" \) 2>/dev/null | head -20 | wc -l | tr -d ' ')
+
+  # Find the dominant language
+  local max_count=0 detected_lang=""
+  for lang_pair in "python:$py_count" "typescript:$ts_count" "javascript:$js_count" "rust:$rs_count" "go:$go_count" "ruby:$rb_count" "java:$java_count"; do
+    local lang="${lang_pair%%:*}"
+    local count="${lang_pair##*:}"
+    if [[ "$count" -gt "$max_count" ]]; then
+      max_count="$count"
+      detected_lang="$lang"
+    fi
+  done
+
+  if [[ "$max_count" -ge 3 ]]; then
+    case "$detected_lang" in
+      python)
+        DETECTED_PRESET="python-fastapi"
+        info "Detected: Python project (${max_count}+ .py files) — using python-fastapi preset"
+        ;;
+      typescript)
+        DETECTED_PRESET="typescript-node"
+        info "Detected: TypeScript project (${max_count}+ .ts files) — using typescript-node preset"
+        ;;
+      javascript)
+        DETECTED_PRESET="typescript-node"
+        info "Detected: JavaScript project (${max_count}+ .js files) — using typescript-node preset"
+        ;;
+      *)
+        DETECTED_PRESET="generic"
+        info "Detected: ${detected_lang} project (${max_count}+ files) — using generic preset"
+        ;;
+    esac
+    return
+  fi
+
+  # Check if it's mostly YAML/k8s without manifests dir
+  if [[ "$k8s_count" -ge 5 ]]; then
+    DETECTED_PRESET="kubernetes-gitops"
+    info "Detected: Infrastructure project (${k8s_count}+ YAML files) — using kubernetes-gitops preset"
+    return
+  fi
+
   info "No specific framework detected — will use generic preset"
   DETECTED_PRESET="generic"
 }
