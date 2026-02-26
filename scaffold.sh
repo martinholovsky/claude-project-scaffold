@@ -346,10 +346,11 @@ prompt_text() {
   local default="${2:-}"
   local result
 
+  printf "\n"
   if [[ -n "$default" ]]; then
-    printf "%b? %b%s %b(%s)%b: " "$BOLD" "$NC" "$prompt" "$DIM" "$default" "$NC"
+    printf "  %b?%b %s [%s]: " "$CYAN" "$NC" "$prompt" "$default"
   else
-    printf "%b? %b%s: " "$BOLD" "$NC" "$prompt"
+    printf "  %b?%b %s: " "$CYAN" "$NC" "$prompt"
   fi
   read -r result
   if [[ -z "$result" ]]; then
@@ -388,7 +389,7 @@ prompt_preset() {
     done
   fi
 
-  printf "\n%b? %bSelect preset:\n" "$BOLD" "$NC"
+  printf "\n  %b?%b Select preset:\n" "$CYAN" "$NC"
 
   local i
   for i in "${!presets[@]}"; do
@@ -414,7 +415,7 @@ prompt_preset() {
     fi
   done
 
-  printf "%b? %bChoice %b(%d)%b: " "$BOLD" "$NC" "$DIM" "$default_num" "$NC"
+  printf "\n  %b?%b Choice [%d]: " "$CYAN" "$NC" "$default_num"
   local choice
   read -r choice
   choice="${choice:-$default_num}"
