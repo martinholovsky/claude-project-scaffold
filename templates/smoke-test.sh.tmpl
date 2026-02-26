@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# {{SMOKE_TITLE}} — {{PROJECT_NAME}}
+# Run: ./scripts/{{SMOKE_FILENAME}} [--help]
+
+set -euo pipefail
+
+# --- Colors & Counters ---
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+PASS=0
+FAIL=0
+WARN=0
+TOTAL=0
+
+pass() { ((PASS++)); ((TOTAL++)); printf "${GREEN}  PASS${NC}  %s\n" "$1"; }
+fail() { ((FAIL++)); ((TOTAL++)); printf "${RED}  FAIL${NC}  %s\n" "$1"; }
+warn() { ((WARN++)); ((TOTAL++)); printf "${YELLOW}  WARN${NC}  %s\n" "$1"; }
+info() { printf "${CYAN}  INFO${NC}  %s\n" "$1"; }
+section() { printf "\n${BOLD}── %s ──${NC}\n" "$1"; }
+
+# --- Help ---
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  cat <<'EOF'
+Usage: {{SMOKE_FILENAME}} [--help]
+
+{{SMOKE_DESCRIPTION}}
+
+Exit codes:
+  0 — all checks passed
+  1 — one or more checks failed
+EOF
+  exit 0
+fi
+
+# --- Checks ---
+
+{{SMOKE_CHECKS}}
+
+# --- Summary ---
+printf "\n${BOLD}═══════════════════════════════════════${NC}\n"
+printf "${BOLD}  Results:${NC} ${GREEN}%d PASS${NC}  ${RED}%d FAIL${NC}  ${YELLOW}%d WARN${NC}  (total: %d)\n" \
+  "$PASS" "$FAIL" "$WARN" "$TOTAL"
+printf "${BOLD}═══════════════════════════════════════${NC}\n"
+
+if ((FAIL > 0)); then
+  exit 1
+fi
+exit 0
