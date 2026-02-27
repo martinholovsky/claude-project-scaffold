@@ -2,12 +2,11 @@
 # Preset: Full-stack (backend + frontend)
 
 preset_name="fullstack"
-preset_description="Full-stack project with backend API, frontend, cross-service contracts, and API integration patterns"
+preset_description="Full-stack project with backend API, frontend, and cross-service contracts"
 
 # Rules files: newline-delimited "filename|description" pairs
 RULES_FILES="api-contracts.md|Inter-service API contracts — the source of truth for request/response shapes
-architecture.md|System architecture, service boundaries, data flow
-cross-service.md|Shared conventions: date formats, IDs, pagination, error handling, env vars"
+architecture.md|System architecture, service boundaries"
 
 # Technology stack entries
 TECH_STACK="| Frontend | *React / Vue / Svelte / Next.js / Nuxt* |
@@ -16,42 +15,8 @@ TECH_STACK="| Frontend | *React / Vue / Svelte / Next.js / Nuxt* |
 | Auth | *JWT / OAuth2 / session-based* |
 | Testing | *pytest + Vitest / Jest* |"
 
-# Context loading table entries
-CONTEXT_LOADING_TABLE="| **Backend API work** | \`backend/CLAUDE.md\` (if exists), \`.claude/rules/api-contracts.md\` |
-| **Frontend UI work** | \`frontend/CLAUDE.md\` (if exists), \`.claude/rules/api-contracts.md\` |
-| **Cross-service feature** | \`.claude/rules/architecture.md\`, \`.claude/rules/api-contracts.md\`, then both service dirs |
-| **Auth changes** | \`.claude/rules/architecture.md\` (Auth section), \`.claude/rules/api-contracts.md\` |
-| **Database changes** | \`backend/\` models/schemas |
-| **Debugging** | \`.claude/rules/troubleshooting.md\` |
-| **Architecture decisions** | \`docs/decisions/index.md\` |"
-
-# Context groups
-CONTEXT_GROUPS='### `api`
-Read: `.claude/rules/api-contracts.md`, backend routes/routers, frontend API client
-
-### `auth`
-Read: `.claude/rules/architecture.md` (Auth section), `.claude/rules/api-contracts.md` (Auth endpoints),
-backend auth module, frontend auth store/composable
-
-### `cross-service`
-Read: `.claude/rules/cross-service.md`, `.claude/rules/api-contracts.md`
-
-### `debug`
-Read: `.claude/rules/troubleshooting.md`
-
-### `architecture`
-Read: `.claude/rules/architecture.md`, `docs/decisions/index.md`'
-
 # Development workflow
-WORKFLOW='### Cross-Service Tasks
-
-When a task spans backend + frontend:
-1. Read `.claude/rules/api-contracts.md` for the contract
-2. Implement backend first (API contract producer)
-3. Implement frontend second (API contract consumer)
-4. Test the integration
-
-```bash
+WORKFLOW='```bash
 # Backend
 cd backend && # install deps && start dev server
 
@@ -59,47 +24,10 @@ cd backend && # install deps && start dev server
 cd frontend && # install deps && start dev server
 ```'
 
-# Project overview
-PROJECT_OVERVIEW="Full-stack application with separate backend and frontend."
-
-# Workspace structure
-WORKSPACE_STRUCTURE='{{PROJECT_NAME}}/
-├── CLAUDE.md                    # Root orchestrator
-├── .claude/
-│   ├── rules/
-│   │   ├── architecture.md      # System architecture & data flow
-│   │   ├── api-contracts.md     # Inter-service API contracts
-│   │   ├── cross-service.md     # Shared conventions
-│   │   └── troubleshooting.md   # Error playbook
-│   ├── hooks/
-│   │   └── lint-on-edit.sh
-│   ├── memory/
-│   │   ├── MEMORY.md
-│   │   ├── api-patterns.md
-│   │   ├── frontend-patterns.md
-│   │   ├── debugging.md
-│   │   └── cross-service.md
-│   └── commands/
-│       ├── review.md
-│       ├── test.md
-│       ├── plan.md
-│       ├── smoke.md
-│       └── lint.md
-├── backend/
-│   ├── CLAUDE.md                # Backend-specific instructions (optional)
-│   └── ...
-├── frontend/
-│   ├── CLAUDE.md                # Frontend-specific instructions (optional)
-│   └── ...
-├── docs/
-│   ├── plans/
-│   │   └── .plan-template.md
-│   └── decisions/
-│       ├── index.md
-│       └── adr-template.md
-└── scripts/
-    ├── smoke-backend.sh
-    └── smoke-frontend.sh'
+# Project conventions
+PROJECT_CONVENTIONS='- Monorepo: implement backend (contract producer) first, then frontend (consumer).
+- Backend is the security boundary — frontend never accesses DB or queue directly.
+- Run backend and frontend dev servers in separate terminals.'
 
 # Smoke test scripts: "filename|title|checks_variable_name"
 SMOKE_SCRIPTS="smoke-backend.sh|Backend Health Checks|SMOKE_BACKEND_CHECKS
@@ -162,61 +90,19 @@ else
 fi'
 
 # Troubleshooting sections
-TROUBLESHOOTING_SECTIONS='## 1. Cross-Service / API Integration
+TROUBLESHOOTING_SECTIONS='### Symptom: Frontend gets CORS errors when calling backend
 
-### Symptom: Frontend gets CORS errors when calling backend
+**Diagnosis:** Backend not configured to allow requests from the frontend origin.
 
-**Diagnosis:** Backend is not configured to allow requests from the frontend origin.
-
-**Fix:** Configure CORS on the backend to allow the frontend dev server origin:
-- FastAPI: `CORSMiddleware(allow_origins=["http://localhost:3000"])`
-- Express: `cors({ origin: "http://localhost:3000" })`
+**Fix:** Configure CORS on the backend to allow the frontend dev server origin.
 
 ---
 
 ### Symptom: Frontend receives 401 but user is logged in
 
-**Diagnosis:** JWT token is not being sent in the Authorization header, or the token
-has expired.
+**Diagnosis:** JWT token not being sent in the Authorization header, or token expired.
 
-**Fix:** Check the frontend API client is including `Authorization: Bearer <token>`.
-Verify the token expiry in jwt.io. Implement token refresh logic.
-
----
-
-## 2. Backend
-
-### Symptom: {describe backend issue}
-
-**Diagnosis:** {root cause}
-
-**Fix:**
-```bash
-# commands to resolve
-```
-
----
-
-## 3. Frontend
-
-### Symptom: {describe frontend issue}
-
-**Diagnosis:** {root cause}
-
-**Fix:**
-```bash
-# commands to resolve
-```
-
----
-
-## 4. Database
-
-*Add entries as you encounter database issues.*
-
----
-
-*Add entries as you encounter and solve issues. Use the Symptom -> Diagnosis -> Fix format.*'
+**Fix:** Check the frontend API client includes `Authorization: Bearer <token>`. Verify token expiry. Implement token refresh logic.'
 
 # Memory topics: "filename|description" pairs
 MEMORY_TOPICS="api-patterns.md|API endpoint patterns and contract decisions
@@ -227,7 +113,6 @@ cross-service.md|Integration issues between frontend and backend"
 # Slash commands to scaffold
 COMMANDS="review.md
 test.md
-plan.md
 smoke.md
 lint.md"
 
@@ -236,14 +121,12 @@ lint.md"
 # shellcheck disable=SC2034
 RULES_CONTENT_API_CONTRACTS='# API Contracts
 
-> **When to use:** Adding or modifying API endpoints, implementing frontend API calls.
->
-> **Read first for:** Any cross-service feature, new endpoint, data model changes.
+> Document your actual API endpoints here. This is the source of truth for frontend-backend communication.
 
-## Base URL
+## Base URLs
 
-- **Production:** `https://api.example.com/api/v1`
-- **Local dev:** `http://localhost:8000/api/v1` (backend), `http://localhost:3000` (frontend)
+- **Backend dev:** `http://localhost:8000/api/v1`
+- **Frontend dev:** `http://localhost:3000`
 
 ## Authentication Flow
 
@@ -256,78 +139,19 @@ RULES_CONTENT_API_CONTRACTS='# API Contracts
 6. Backend validates JWT on every protected request
 ```
 
-### Token format
-```json
-{
-  "sub": "user-id",
-  "email": "user@example.com",
-  "role": "user",
-  "exp": 1708303600
-}
+## Endpoints
+
+*Add your real endpoints below as you build them:*
+
 ```
-
-## Request/Response Patterns
-
-### Creating a resource
-```
-POST /api/v1/resources
-Headers: Authorization: Bearer <jwt>
-Body: { "name": "...", "description": "..." }
-Response: 201 { "id": "...", "name": "...", ... }
-```
-
-### Listing (paginated)
-```
-GET /api/v1/resources?limit=50&offset=0&sort=created_at&order=desc
-Response: { "items": [...], "total": 123, "offset": 0, "limit": 50 }
-```
-
-## Error Response Format
-
-```json
-{
-  "detail": "Human-readable error message",
-  "code": "NOT_FOUND",
-  "status": 404
-}
-```
-
-## Frontend API Client
-
-```typescript
-// composables/useApi.ts
-const api = $fetch.create({
-  baseURL: "/api/v1",
-  headers: { Authorization: \`Bearer \${token.value}\` },
-  onResponseError({ response }) {
-    if (response.status === 401) navigateTo("/login")
-  },
-})
+GET  /api/v1/resources          # List (paginated)
+POST /api/v1/resources          # Create
+GET  /api/v1/resources/{id}     # Get one
+PATCH /api/v1/resources/{id}    # Update
 ```'
 
 # shellcheck disable=SC2034
 RULES_CONTENT_ARCHITECTURE='# System Architecture
-
-> **When to use:** Understanding service boundaries, planning cross-service features.
->
-> **Read first for:** Any task spanning backend + frontend, auth changes, new service design.
-
-## High-Level Architecture
-
-```
-          Users
-            |
-       [API Gateway / Proxy]
-            |
-     +------+------+
-     |             |
-  Backend       Frontend
-  (API)         (SPA/SSR)
-     |
-  +--+--+
-  |     |
-  DB  Queue
-```
 
 ## Service Boundaries
 
@@ -338,116 +162,8 @@ RULES_CONTENT_ARCHITECTURE='# System Architecture
 | Input sanitization (UI) | Frontend |
 | API response formatting | Backend |
 | Routing, page rendering | Frontend |
-| State management | Frontend |
 
 **Rule:** All data flows through the backend API. The frontend NEVER accesses the
-database or message queue directly. The backend is the security boundary.
-
-## Data Flow
-
-```
-Frontend → API Request → Backend → Database
-Frontend ← API Response ← Backend ← Database
-```
-
-For real-time updates:
-```
-Backend → WebSocket/SSE → Frontend
-```
-
-## Environment Separation
-
-| Environment | Backend | Frontend |
-|-------------|---------|----------|
-| Development | localhost:8000 | localhost:3000 |
-| Staging | api.staging.example.com | staging.example.com |
-| Production | api.example.com | example.com |'
-
-# shellcheck disable=SC2034
-RULES_CONTENT_CROSS_SERVICE='# Cross-Service Patterns
-
-> **When to use:** Ensuring consistency between frontend and backend.
->
-> **Read first for:** Shared type definitions, error handling, date formats, env vars.
-
-## Shared Types
-
-Keep types in sync between frontend and backend. When changing an API response shape:
-1. Update the backend schema/model
-2. Update the frontend TypeScript type
-3. Update any API contract documentation
-
-## Date/Time Format
-
-All timestamps use **ISO 8601 UTC**: `2026-01-01T12:00:00Z`
-
-- Backend: `datetime.now(timezone.utc).isoformat()`
-- Frontend: `new Date().toISOString()`
-
-## ID Format
-
-IDs are opaque strings. The frontend never parses or constructs IDs.
-
-## Pagination
-
-All list endpoints return:
-```json
-{ "items": [...], "total": 1234, "offset": 0, "limit": 50 }
-```
-
-Query params: `?limit=50&offset=0&sort=created_at&order=desc`
-
-## Error Handling
-
-Backend returns:
-```json
-{ "detail": "Message", "code": "ERROR_CODE", "status": 404 }
-```
-
-Frontend handles:
-```typescript
-try {
-  const data = await api("/resources", { method: "POST", body })
-} catch (error) {
-  if (error.status === 422) {
-    // Show field-level validation errors
-  } else if (error.status === 429) {
-    // Rate limited — show retry message
-  } else {
-    toast.error(error.data?.detail || "Something went wrong")
-  }
-}
-```
-
-## CORS Configuration
-
-Backend must allow frontend origin:
-```python
-# FastAPI
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-## Environment Variables
-
-### Backend
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | Database connection string |
-| `SECRET_KEY` | JWT signing key |
-| `CORS_ORIGINS` | Allowed frontend origins |
-
-### Frontend
-| Variable | Description |
-|----------|-------------|
-| `API_BASE_URL` | Backend API URL |
-| `PUBLIC_URL` | Frontend public URL |
-
-**Secrets are NEVER exposed to the frontend.** All secret-dependent operations go through the backend.'
+database or message queue directly. The backend is the security boundary.'
 
 LINT_LANGUAGES="Python (ruff) or TypeScript/JS (eslint + prettier), YAML, JSON, Shell (shellcheck)"

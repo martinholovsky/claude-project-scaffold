@@ -1,75 +1,17 @@
-# CLAUDE.md — {{PROJECT_NAME}}
+# {{PROJECT_NAME}}
 
 {{DESCRIPTION}}
 
-## Project Overview
-
-{{PROJECT_OVERVIEW}}
-
-## Workspace Structure
-
-```
-{{WORKSPACE_STRUCTURE}}
-```
-
-## Technology Stack
+## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
 {{TECH_STACK}}
 
-## Proactive Context Loading
-
-**Before starting ANY task, read the relevant rules files.**
-
-| Task | Read First |
-|------|-----------|
-{{CONTEXT_LOADING_TABLE}}
-
-## Development Workflow
+## Dev Commands
 
 {{WORKFLOW}}
 
-## Context Groups
+## Project Conventions
 
-**Use these to quickly load all relevant files for a task type.** Say "load {group} context" to trigger.
-
-{{CONTEXT_GROUPS}}
-
-## Plan Execution Protocol (SESSION RECOVERY)
-
-**All multi-step tasks MUST use a plan file.** This prevents context loss when sessions freeze.
-
-### When to Create a Plan File
-
-- Any task with 3+ steps
-- Any task touching multiple files or repos
-- Any infrastructure change
-- When the user asks to "plan", "implement", or work on a non-trivial feature
-
-### Workflow
-
-1. **Before coding**, create a plan file from the template:
-   ```
-   cp docs/plans/.plan-template.md docs/plans/plan-{topic}.md
-   ```
-2. **Fill in** the objective, context, and steps
-3. **Update the checklist** as each step completes — mark `[x]` and add notes to the Progress Log
-4. **Commit the plan file** alongside code changes (or separately if no code yet)
-5. **On completion**, set status to `completed` and update the final Progress Log entry
-
-### Session Recovery
-
-When starting a new session and an active plan exists:
-1. Check `docs/plans/` for any plan with `Status: in-progress`
-2. Read the plan file to restore full context
-3. Resume from the last completed step in the Progress Log
-4. The user can say: **"Continue the plan"** or **"Resume docs/plans/plan-{topic}.md"**
-
-### Rules
-
-- **One active plan per topic** — don't create duplicates
-- **Update Progress Log after every completed step** — this is the lifeline for recovery
-- **"Stopped at" is mandatory** — always record where you stopped and what's next
-- **Commit plan updates** with code changes so they survive across sessions
-- **Delete or mark `abandoned`** plans that are no longer relevant
+{{PROJECT_CONVENTIONS}}

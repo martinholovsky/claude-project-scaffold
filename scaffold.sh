@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Project Scaffold — Interactive setup script
-# Creates Claude Code scaffolding (CLAUDE.md, plan files, ADRs, hooks, smoke tests)
-# in any project directory.
+# Creates minimal Claude Code scaffolding (CLAUDE.md, rules, ADRs, hooks, smoke tests)
+# in any project directory. Only includes what Claude would get wrong without it.
 #
 # Usage:
 #   ~/claude-project-scaffold/scaffold.sh           # Interactive
@@ -42,11 +42,8 @@ preset_name=""
 preset_description=""
 RULES_FILES=""          # newline-delimited "filename|description" pairs
 TECH_STACK=""
-CONTEXT_LOADING_TABLE=""
-CONTEXT_GROUPS=""
 WORKFLOW=""
-PROJECT_OVERVIEW=""
-WORKSPACE_STRUCTURE=""
+PROJECT_CONVENTIONS=""
 SMOKE_SCRIPTS=""        # newline-delimited "filename|title|checks_var" entries
 TROUBLESHOOTING_SECTIONS=""
 LINT_LANGUAGES=""
@@ -460,7 +457,7 @@ prompt_text() {
 prompt_preset() {
   local presets=("generic" "python-fastapi" "typescript-node" "fullstack" "kubernetes-gitops")
   local descriptions=(
-    "Minimal — CLAUDE.md, plans, ADRs, hooks"
+    "Minimal — CLAUDE.md, ADRs, hooks"
     "Python/FastAPI backend"
     "TypeScript/Node.js"
     "Full-stack (backend + frontend)"
@@ -642,32 +639,16 @@ scaffold() {
   fi
 
   if $should_write_claude_md; then
-    # Pre-process workspace structure to replace inner {{PROJECT_NAME}}
-    local ws_tmp
-    ws_tmp=$(mktemp)
-    printf '%s' "$WORKSPACE_STRUCTURE" > "$ws_tmp"
-    local ws
-    ws=$(python3 -c "
-with open('$ws_tmp') as f:
-    print(f.read().replace('{{PROJECT_NAME}}', '$PROJECT_NAME'), end='')
-")
-    rm -f "$ws_tmp"
     _tmpl_sub "$TEMPLATES_DIR/CLAUDE.md.tmpl" "CLAUDE.md" \
       "PROJECT_NAME=$PROJECT_NAME" \
       "DESCRIPTION=$DESCRIPTION" \
-      "PROJECT_OVERVIEW=$PROJECT_OVERVIEW" \
       "TECH_STACK=$TECH_STACK" \
-      "CONTEXT_LOADING_TABLE=$CONTEXT_LOADING_TABLE" \
-      "CONTEXT_GROUPS=$CONTEXT_GROUPS" \
       "WORKFLOW=$WORKFLOW" \
-      "WORKSPACE_STRUCTURE=$ws"
+      "PROJECT_CONVENTIONS=$PROJECT_CONVENTIONS"
     created "CLAUDE.md"
   fi
 
-  # --- 5. docs/plans/.plan-template.md ---
-  copy_if_missing "$TEMPLATES_DIR/plan-template.md" "docs/plans/.plan-template.md"
-
-  # --- 6. docs/decisions/ ---
+  # --- 5. docs/decisions/ ---
   if [[ ! -f "docs/decisions/index.md" ]]; then
     mkdir -p docs/decisions
     _tmpl_sub "$TEMPLATES_DIR/adr-index.md.tmpl" "docs/decisions/index.md" \
@@ -679,7 +660,7 @@ with open('$ws_tmp') as f:
 
   copy_if_missing "$TEMPLATES_DIR/adr-template.md" "docs/decisions/adr-template.md"
 
-  # --- 7. .claude/memory/ ---
+  # --- 6. .claude/memory/ ---
   local memory_count=0
   if [[ -n "$MEMORY_TOPICS" ]]; then
     # Build topic table for MEMORY.md template
@@ -711,7 +692,7 @@ with open('$ws_tmp') as f:
     fi
   fi
 
-  # --- 8. .claude/commands/ ---
+  # --- 7. .claude/commands/ ---
   local commands_count=0
   if [[ -n "$COMMANDS" ]]; then
     local cmd_file
@@ -726,7 +707,7 @@ with open('$ws_tmp') as f:
     done <<< "$COMMANDS"
   fi
 
-  # --- 9. Smoke test scripts ---
+  # --- 8. Smoke test scripts ---
   local smoke_count=0
   if [[ -n "$SMOKE_SCRIPTS" ]]; then
     local script_name script_title checks_var
@@ -765,7 +746,7 @@ warn "No checks implemented yet"'
   printf "Created %b%d%b files, skipped %b%d%b existing.\n" "$GREEN" "$CREATED_FILES" "$NC" "$DIM" "$SKIPPED_FILES" "$NC"
 
   printf "\n%bWhat was created:%b\n" "$BOLD" "$NC"
-  printf "  %bCLAUDE.md%b                       Project instructions with Plan Protocol + Context Groups\n" "$CYAN" "$NC"
+  printf "  %bCLAUDE.md%b                       Project instructions — tech stack, commands, conventions\n" "$CYAN" "$NC"
   printf "  %b.claude/rules/%b                  %d rule files (troubleshooting + preset-specific)\n" "$CYAN" "$NC" "$rules_created"
   printf "  %b.claude/hooks/lint-on-edit.sh%b   Auto-lint on Write/Edit\n" "$CYAN" "$NC"
   if [[ "$memory_count" -gt 0 ]]; then
@@ -774,22 +755,18 @@ warn "No checks implemented yet"'
   if [[ "$commands_count" -gt 0 ]]; then
     printf "  %b.claude/commands/%b               %d slash commands (/review, /test, etc.)\n" "$CYAN" "$NC" "$commands_count"
   fi
-  printf "  %bdocs/plans/.plan-template.md%b    Session-resilient plan template\n" "$CYAN" "$NC"
   printf "  %bdocs/decisions/%b                 ADR index + template\n" "$CYAN" "$NC"
   if [[ "$smoke_count" -gt 0 ]]; then
     printf "  %bscripts/%b                        %d smoke test script(s)\n" "$CYAN" "$NC" "$smoke_count"
   fi
 
   printf "\n%bNext steps:%b\n" "$BOLD" "$NC"
-  printf "  1. Review and customize %bCLAUDE.md%b\n" "$CYAN" "$NC"
-  printf "  2. Customize rules in %b.claude/rules/%b for your project\n" "$CYAN" "$NC"
-  printf "  3. Add your architecture diagram to %bCLAUDE.md%b\n" "$CYAN" "$NC"
-  printf "  4. Create your first ADR:\n"
+  printf "  1. Review and customize %bCLAUDE.md%b — add project-specific conventions\n" "$CYAN" "$NC"
+  printf "  2. Fill in your actual endpoints/schemas in %b.claude/rules/%b\n" "$CYAN" "$NC"
+  printf "  3. Create your first ADR:\n"
   printf "     %bcp docs/decisions/adr-template.md docs/decisions/001-your-decision.md%b\n" "$DIM" "$NC"
-  printf "  5. Start a plan:\n"
-  printf "     %bcp docs/plans/.plan-template.md docs/plans/plan-feature-name.md%b\n" "$DIM" "$NC"
   if [[ "$commands_count" -gt 0 ]]; then
-    printf "  6. Try a slash command: %b/review%b, %b/test%b, %b/plan <task>%b\n" "$CYAN" "$NC" "$CYAN" "$NC" "$CYAN" "$NC"
+    printf "  4. Try a slash command: %b/review%b, %b/test%b\n" "$CYAN" "$NC" "$CYAN" "$NC"
   fi
   printf "\n"
 }
@@ -857,13 +834,6 @@ clean_scaffold() {
   # Remove .claude/ if empty
   rmdir .claude 2>/dev/null && printf "  %bremoved%b .claude/ (empty)\n" "$RED" "$NC"
 
-  # docs/plans/.plan-template.md
-  if [[ -f "docs/plans/.plan-template.md" ]]; then
-    rm -f "docs/plans/.plan-template.md"
-    printf "  %bremoved%b docs/plans/.plan-template.md\n" "$RED" "$NC"
-    removed=$((removed + 1))
-  fi
-
   # docs/decisions/adr-template.md + index.md
   if [[ -f "docs/decisions/adr-template.md" ]]; then
     rm -f "docs/decisions/adr-template.md"
@@ -887,7 +857,6 @@ clean_scaffold() {
   done
 
   # Clean up empty dirs
-  rmdir docs/plans 2>/dev/null
   rmdir docs/decisions 2>/dev/null
   rmdir docs 2>/dev/null
   rmdir scripts 2>/dev/null

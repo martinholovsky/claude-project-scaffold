@@ -1,8 +1,8 @@
 # Claude Project Scaffold
 
-**One command. 20 files. Your Claude Code sessions stop forgetting everything.**
+**Minimal, high-signal scaffolding for Claude Code. Only includes what Claude would get wrong without it.**
 
-Most Claude Code setups are incomplete. You get a bare `CLAUDE.md`, sessions freeze mid-task and lose all context, and you repeat the same debugging conversations over and over. This scaffold fixes that — one command generates everything Claude Code can use to work smarter across sessions.
+Research shows Claude's performance degrades with added context ([Anthropic's context study](https://www.anthropic.com/research/context-rot)), and their own guidelines recommend CLAUDE.md under 300 lines with only project-specific content. This scaffold follows that principle — no generic knowledge Claude already has, just the project-specific things it needs to be told.
 
 ```bash
 git clone https://github.com/martinholovsky/claude-project-scaffold.git ~/claude-project-scaffold
@@ -11,38 +11,23 @@ cd ~/my-project
 ~/claude-project-scaffold/scaffold.sh
 ```
 
-**30 seconds of setup. Every session after that starts where the last one left off.**
-
-## The Problem
-
-You open Claude Code. You explain your project. You debug something tricky together. Then the session freezes. Or hits the context limit. Or you close the terminal.
-
-Next session: you start from scratch. Every. Single. Time.
-
-Meanwhile, you've seen the tips: *"Add a CLAUDE.md!"* *"Use rules files!"* *"Try slash commands!"* Each tip covers one small piece. None of them give you the full system that actually makes Claude Code reliable for real work.
-
-This scaffold gives you that full system.
-
 ## What You Get
 
 ```
 your-project/
-├── CLAUDE.md                      # Project brain — context groups, plan protocol, tech stack
+├── CLAUDE.md                      # Tech stack, dev commands, project conventions (~25 lines)
 ├── .claude/
-│   ├── rules/                     # Real patterns (not TODO stubs) — 60-100 lines each
-│   │   ├── api-contracts.md       # Endpoint patterns, schemas, error formats
-│   │   ├── troubleshooting.md     # Symptom → Diagnosis → Fix playbook
-│   │   └── ...                    # Database, security, deployment — depends on preset
+│   ├── rules/                     # Project-specific patterns only
+│   │   ├── api-contracts.md       # Your actual endpoints (placeholder to fill in)
+│   │   └── troubleshooting.md     # Symptom → Diagnosis → Fix playbook
 │   ├── memory/                    # Persists knowledge across sessions
 │   │   ├── MEMORY.md              # Index (always loaded by Claude Code)
 │   │   └── *.md                   # Topic files: debugging, patterns, gotchas
-│   ├── commands/                  # Slash commands: /review, /test, /plan, /lint, ...
+│   ├── commands/                  # Slash commands: /review, /test, /lint, ...
 │   ├── hooks/
 │   │   └── lint-on-edit.sh        # Auto-lint every file Claude touches
 │   └── settings.local.json
 ├── docs/
-│   ├── plans/                     # Session-resilient task tracking
-│   │   └── .plan-template.md      # "Continue the plan" = instant session recovery
 │   └── decisions/                 # Architecture Decision Records
 └── scripts/                       # Smoke tests with PASS/FAIL/WARN output
 ```
@@ -55,11 +40,11 @@ The scaffold detects your project type and suggests the right preset:
 
 | Preset | Detects | What It Adds |
 |--------|---------|-------------|
-| **python-fastapi** | `pyproject.toml` with FastAPI | API contracts, database patterns, Pydantic schemas, pytest smoke |
-| **typescript-node** | `package.json` | API contracts, Zod validation patterns, `/typecheck` command |
-| **fullstack** | `backend/` + `frontend/` dirs | Architecture rules, cross-service contracts, CORS patterns, 2 smoke tests |
-| **kubernetes-gitops** | `kustomize/` / `helm/` / `manifests/` | Network policies, BPF map rules, deployment flow, cluster health checks |
-| **generic** | Anything else | CLAUDE.md, plans, ADRs, troubleshooting, lint hook |
+| **python-fastapi** | `pyproject.toml` with FastAPI | API contracts, database patterns, pytest smoke |
+| **typescript-node** | `package.json` | API contracts, `/typecheck` command |
+| **fullstack** | `backend/` + `frontend/` dirs | Architecture rules, cross-service contracts, 2 smoke tests |
+| **kubernetes-gitops** | `kustomize/` / `helm/` / `manifests/` | Network policy critical rules, deployment checklist, cluster health |
+| **generic** | Anything else | CLAUDE.md, ADRs, troubleshooting, lint hook |
 
 **Deep detection** reads your `pyproject.toml` / `package.json` to extract the project name, description, framework, test runner, and package manager — so you skip the prompts.
 
@@ -69,43 +54,55 @@ scaffold.sh --preset python-fastapi --name my-api --desc "REST API for widgets"
 
 # See all presets
 scaffold.sh --list-presets
+
+# Remove all scaffold files
+scaffold.sh --clean
 ```
 
-## What Each Feature Actually Does For You
+## Design Philosophy
 
-### Rules with real content
+**Only include what Claude would get wrong without it.**
 
-Other scaffolds create empty stubs. This one generates **60-100 lines of actual patterns** per file — API contracts with code examples, database query patterns, error handling conventions. Claude reads these before every task and follows your project's patterns from the start.
+- No HTTP status code tables — Claude knows REST
+- No Pydantic/Zod examples — Claude knows these libraries
+- No "never log passwords" — Claude knows security basics
+- No pagination patterns — Claude knows how to paginate
+- No YAML templates for things Claude can write from scratch
+
+What *does* belong:
+- Your actual API base URL and auth mechanism
+- Your specific migration commands
+- Cilium BPF map overflow gotchas (non-obvious, easy to get wrong)
+- Your naming conventions and required labels
+- Project-specific conventions Claude can't infer
+
+The result: ~300 tokens of always-loaded CLAUDE.md instead of ~2,000+. Less context rot, better performance.
+
+## What Each Feature Does
+
+### Rules with project-specific content
+
+Rules files contain placeholders for your actual endpoints, schemas, and patterns — not generic code examples Claude already knows. Fill them in with your real project details.
 
 ### Session memory
 
-`.claude/memory/MEMORY.md` is loaded into every conversation. Claude writes what it learns here — database gotchas, API quirks, infrastructure state. Next session, it already knows. Topic files keep it organized: `api-patterns.md`, `database-gotchas.md`, `debugging.md`.
+`.claude/memory/MEMORY.md` is loaded into every conversation. Claude writes what it learns here — database gotchas, API quirks, infrastructure state. Next session, it already knows.
 
 ### Slash commands
 
-Type `/review` and Claude reviews your staged changes for bugs, security issues, and style. Type `/test` and it runs your test suite, reads failures, and suggests fixes. Type `/plan <task>` and it creates a session-resilient plan file. Kubernetes preset gets `/cluster-health`, `/deploy-check`, `/validate-policies`.
-
-### Plan files (session recovery)
-
-Every multi-step task gets a plan file with a progress log. When a session dies:
-
-```
-"Continue the plan"
-```
-
-Claude reads the plan, sees where it stopped, and picks up from there. No re-explaining.
+Type `/review` and Claude reviews your staged changes. Type `/test` and it runs your test suite. Kubernetes preset gets `/cluster-health`, `/deploy-check`, `/validate-policies`.
 
 ### Troubleshooting playbook
 
-Every solved bug gets documented: **Symptom → Diagnosis → Fix**. Claude matches error patterns to known solutions. You stop debugging the same issue twice.
+Every solved bug gets documented: **Symptom → Diagnosis → Fix**. Claude matches error patterns to known solutions.
 
 ### Auto-lint hook
 
-Claude writes a `.py` file? Ruff runs automatically. `.ts` file? ESLint + Prettier. `.yaml`? Syntax validation that **blocks on errors**. Supports Python, TypeScript, Go, Rust, YAML, JSON, and shell scripts.
+Claude writes a `.py` file? Ruff runs automatically. `.ts` file? ESLint + Prettier. `.yaml`? Syntax validation. Supports Python, TypeScript, Go, Rust, YAML, JSON, and shell scripts.
 
 ### Smoke tests
 
-Preset-specific validation scripts. The kubernetes-gitops preset checks node health, deployment readiness, and scans network policies for dangerous patterns (like BPF map overflow). Colored PASS/FAIL/WARN output.
+Preset-specific validation scripts. The kubernetes-gitops preset checks node health, deployment readiness, and scans network policies for dangerous BPF patterns.
 
 ## Community Presets
 
@@ -130,11 +127,8 @@ Every preset is a bash script that sets these variables:
 | `preset_description` | Yes | One-line description for the menu |
 | `RULES_FILES` | Yes | `"filename\|description"` pairs (newline-delimited) |
 | `TECH_STACK` | Yes | Markdown table rows |
-| `CONTEXT_LOADING_TABLE` | Yes | "Task → Read First" table rows |
-| `CONTEXT_GROUPS` | Yes | Named file sets for context loading |
-| `WORKFLOW` | Yes | Dev workflow section |
-| `PROJECT_OVERVIEW` | Yes | Default overview text |
-| `WORKSPACE_STRUCTURE` | Yes | ASCII directory tree |
+| `WORKFLOW` | Yes | Dev commands section |
+| `PROJECT_CONVENTIONS` | Yes | Project-specific conventions (2-5 lines) |
 | `TROUBLESHOOTING_SECTIONS` | Yes | Playbook content |
 | `LINT_LANGUAGES` | Yes | Linter description |
 | `SMOKE_SCRIPTS` | No | `"filename\|title\|checks_var"` entries |
@@ -151,8 +145,6 @@ To provide real content for a rules file instead of a TODO stub:
 # shellcheck disable=SC2034
 RULES_CONTENT_API_CONTRACTS='# API Contracts
 
-> **When to use:** Adding or modifying endpoints...
-
 ## Base URL
 ...'
 ```
@@ -168,16 +160,16 @@ scaffold.sh [options]
   --desc DESCRIPTION Project description
   --preset PRESET    Skip interactive selection
   --list-presets     Show all available presets (bundled + community)
+  --clean            Remove all scaffold-generated files
   --help, -h         Show this help
 ```
 
 ## After Scaffolding
 
-1. Open `CLAUDE.md` — review and customize the overview, tech stack, and context groups
-2. Check `.claude/rules/` — the preset filled in real content; tailor it to your specifics
-3. Try `/review`, `/test`, `/plan implement auth flow`
+1. Open `CLAUDE.md` — review tech stack, fill in project conventions
+2. Fill in `.claude/rules/` with your actual endpoints and patterns
+3. Try `/review`, `/test`
 4. Create your first ADR: `cp docs/decisions/adr-template.md docs/decisions/001-use-postgres.md`
-5. Start a plan: `cp docs/plans/.plan-template.md docs/plans/plan-feature-name.md`
 
 ## License
 

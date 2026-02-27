@@ -5,8 +5,7 @@ preset_name="typescript-node"
 preset_description="TypeScript/Node.js project with eslint, vitest, and API patterns"
 
 # Rules files: newline-delimited "filename|description" pairs
-RULES_FILES="api-contracts.md|API endpoint contracts, request/response types, error handling
-cross-service.md|Shared patterns, conventions, type definitions"
+RULES_FILES="api-contracts.md|API endpoint contracts, request/response types"
 
 # Technology stack entries
 TECH_STACK="| Runtime | Node.js 20+ |
@@ -15,22 +14,6 @@ TECH_STACK="| Runtime | Node.js 20+ |
 | Testing | Vitest |
 | Linting | ESLint + Prettier |
 | Package Manager | *npm / pnpm / bun* |"
-
-# Context loading table entries
-CONTEXT_LOADING_TABLE="| **New API endpoint** | \`.claude/rules/api-contracts.md\`, \`src/routes/\` |
-| **Type changes** | \`src/types/\`, \`.claude/rules/cross-service.md\` |
-| **Debugging** | \`.claude/rules/troubleshooting.md\` |
-| **Architecture decisions** | \`docs/decisions/index.md\` |"
-
-# Context groups
-CONTEXT_GROUPS='### `api`
-Read: `.claude/rules/api-contracts.md`, `src/routes/`, `src/types/`
-
-### `config`
-Read: `tsconfig.json`, `package.json`, `.env.example`
-
-### `debug`
-Read: `.claude/rules/troubleshooting.md`'
 
 # Development workflow
 WORKFLOW='```bash
@@ -44,58 +27,16 @@ npm run dev
 npm test
 
 # Lint & format
-npm run lint
-npm run format
+npm run lint && npm run format
 
 # Type check
 npx tsc --noEmit
-
-# Build
-npm run build
 ```'
 
-# Project overview
-PROJECT_OVERVIEW="TypeScript/Node.js service."
-
-# Workspace structure
-WORKSPACE_STRUCTURE='{{PROJECT_NAME}}/
-├── CLAUDE.md
-├── .claude/
-│   ├── rules/
-│   │   ├── api-contracts.md
-│   │   ├── cross-service.md
-│   │   └── troubleshooting.md
-│   ├── hooks/
-│   │   └── lint-on-edit.sh
-│   ├── memory/
-│   │   ├── MEMORY.md
-│   │   ├── patterns.md
-│   │   ├── debugging.md
-│   │   └── dependencies.md
-│   └── commands/
-│       ├── review.md
-│       ├── test.md
-│       ├── plan.md
-│       ├── smoke.md
-│       ├── lint.md
-│       └── typecheck.md
-├── src/
-│   ├── index.ts
-│   ├── routes/
-│   ├── types/
-│   ├── services/
-│   └── utils/
-├── tests/
-├── docs/
-│   ├── plans/
-│   │   └── .plan-template.md
-│   └── decisions/
-│       ├── index.md
-│       └── adr-template.md
-├── scripts/
-│   └── smoke-app.sh
-├── package.json
-└── tsconfig.json'
+# Project conventions
+PROJECT_CONVENTIONS='- Run `npm test` to verify changes.
+- Run `npx tsc --noEmit` for type checking.
+- Run `npm run lint && npm run format` before committing.'
 
 # Smoke test scripts
 SMOKE_SCRIPTS="smoke-app.sh|Application Health Checks|SMOKE_APP_CHECKS"
@@ -148,18 +89,11 @@ else
 fi'
 
 # Troubleshooting sections
-TROUBLESHOOTING_SECTIONS='## 1. TypeScript / Build
+TROUBLESHOOTING_SECTIONS='### Symptom: `Cannot find module` or path alias not resolving
 
-### Symptom: `Cannot find module` or path alias not resolving
+**Diagnosis:** TypeScript path aliases in `tsconfig.json` are not resolved at runtime by Node.js.
 
-**Diagnosis:** TypeScript path aliases in `tsconfig.json` are not being resolved at runtime.
-`tsc` resolves them at compile time but Node.js does not natively support them.
-
-**Fix:** Use `tsconfig-paths` or configure your bundler to resolve aliases:
-```bash
-npm install -D tsconfig-paths
-# In dev: node -r tsconfig-paths/register dist/index.js
-```
+**Fix:** Use `tsconfig-paths` or configure your bundler to resolve aliases.
 
 ---
 
@@ -169,44 +103,8 @@ npm install -D tsconfig-paths
 
 **Fix:**
 ```bash
-# Use tsx for development
-npx tsx src/index.ts
-
-# Or use ts-node with ESM
-node --loader ts-node/esm src/index.ts
-```
-
----
-
-## 2. Dependencies
-
-### Symptom: Peer dependency conflicts during install
-
-**Diagnosis:** Conflicting version requirements between packages.
-
-**Fix:**
-```bash
-# Check the conflict
-npm ls <package-name>
-
-# Force install (use cautiously)
-npm install --legacy-peer-deps
-```
-
----
-
-## 3. Testing
-
-### Symptom: Vitest hangs or does not exit
-
-**Diagnosis:** Open handles (database connections, timers, servers) preventing clean exit.
-
-**Fix:** Ensure all resources are cleaned up in `afterAll` / `afterEach` hooks.
-Run with `--reporter=verbose` to see which test is hanging.
-
----
-
-*Add entries as you encounter and solve issues. Use the Symptom -> Diagnosis -> Fix format.*'
+npx tsx src/index.ts       # Use tsx for development
+```'
 
 # Memory topics: "filename|description" pairs
 MEMORY_TOPICS="patterns.md|Recurring code patterns and conventions
@@ -216,7 +114,6 @@ dependencies.md|Package-specific gotchas, version constraints, upgrade notes"
 # Slash commands to scaffold
 COMMANDS="review.md
 test.md
-plan.md
 smoke.md
 lint.md
 typecheck.md"
@@ -226,198 +123,22 @@ typecheck.md"
 # shellcheck disable=SC2034
 RULES_CONTENT_API_CONTRACTS='# API Contracts
 
-> **When to use:** Adding or modifying API endpoints, debugging request/response issues.
->
-> **Read first for:** New endpoints, type changes, error handling patterns.
+> Document your actual API endpoints here.
 
 ## Base URL
 
-- **Production:** `https://api.example.com/api/v1`
 - **Local dev:** `http://localhost:3000/api/v1`
+- **Production:** `https://api.example.com/api/v1`
 
-## Request/Response Patterns
+## Endpoints
 
-### Creating a resource
-```
-POST /api/v1/resources
-Body: { "name": "...", "description": "..." }
-Response: 201 { "id": "...", "name": "...", ... }
-```
-
-### Listing resources (paginated)
-```
-GET /api/v1/resources?limit=50&offset=0&sort=createdAt&order=desc
-Response: { "items": [...], "total": 123, "offset": 0, "limit": 50 }
-```
-
-### Error format
-```json
-{
-  "detail": "Human-readable error message",
-  "code": "NOT_FOUND",
-  "status": 404
-}
-```
-
-## Type Definitions
-
-```typescript
-// types/api.ts
-interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  offset: number
-  limit: number
-}
-
-interface ApiError {
-  detail: string
-  code: string
-  status: number
-}
-```
-
-## Input Validation (Zod)
-
-```typescript
-import { z } from "zod"
-
-const CreateResourceSchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().optional(),
-})
-
-type CreateResource = z.infer<typeof CreateResourceSchema>
-
-// In route handler
-const body = CreateResourceSchema.parse(req.body)
-```
-
-## Error Handling
-
-```typescript
-// middleware/error-handler.ts
-export function errorHandler(err: Error, req: Request, res: Response, next: NextFunction) {
-  if (err instanceof z.ZodError) {
-    return res.status(422).json({
-      detail: "Validation failed",
-      code: "VALIDATION_ERROR",
-      status: 422,
-      errors: err.errors,
-    })
-  }
-
-  console.error(err)
-  res.status(500).json({
-    detail: "Internal server error",
-    code: "INTERNAL_ERROR",
-    status: 500,
-  })
-}
-```
-
-## Health Endpoints
+*Add your real endpoints below as you build them:*
 
 ```
-GET /health       # Liveness (no auth)
-GET /ready        # Readiness with dependency checks (no auth)
-```'
-
-# shellcheck disable=SC2034
-RULES_CONTENT_CROSS_SERVICE='# Cross-Service Patterns
-
-> **When to use:** Ensuring consistency across modules, understanding shared conventions.
->
-> **Read first for:** Type definitions, error handling, environment variables.
-
-## TypeScript Conventions
-
-- **Strict mode** enabled in `tsconfig.json`
-- Prefer `interface` for object shapes, `type` for unions/intersections
-- Use `unknown` over `any` — narrow types explicitly
-- Never use `as` type assertions unless absolutely necessary (prefer type guards)
-
-## Date/Time Format
-
-All timestamps use **ISO 8601 UTC**: `2026-01-01T12:00:00Z`
-
-```typescript
-const now = new Date().toISOString() // "2026-01-01T12:00:00.000Z"
-```
-
-## Error Handling
-
-```typescript
-// Use Result pattern for expected failures
-type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E }
-
-// Throw only for unexpected failures (bugs, invariant violations)
-// Return Result for expected failures (not found, validation, auth)
-```
-
-## Environment Variables
-
-```typescript
-// config.ts — validate at startup, not at usage
-import { z } from "zod"
-
-const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "production", "test"]),
-  PORT: z.coerce.number().default(3000),
-  DATABASE_URL: z.string().url(),
-  JWT_SECRET: z.string().min(32),
-})
-
-export const config = envSchema.parse(process.env)
-```
-
-**Secrets are NEVER committed to git.** Use `.env` locally, secrets manager in production.
-
-## Import Conventions
-
-```typescript
-// 1. Node.js built-ins
-import { readFile } from "node:fs/promises"
-
-// 2. External packages
-import { z } from "zod"
-
-// 3. Internal modules (use path aliases)
-import { db } from "@/db"
-import { UserService } from "@/services/user"
-import type { User } from "@/types"
-```
-
-## Logging
-
-```typescript
-import pino from "pino"
-
-const logger = pino({ level: process.env.LOG_LEVEL ?? "info" })
-
-logger.info({ resourceId, userId }, "resource created")
-logger.error({ err, query }, "database error")
-```
-
-**Never log:** passwords, tokens, PII, full request bodies with sensitive data.
-
-## Testing Patterns
-
-```typescript
-import { describe, it, expect, beforeEach } from "vitest"
-
-describe("UserService", () => {
-  let service: UserService
-
-  beforeEach(() => {
-    service = new UserService(mockDb)
-  })
-
-  it("creates a user", async () => {
-    const user = await service.create({ name: "Test" })
-    expect(user.name).toBe("Test")
-  })
-})
+GET  /api/v1/resources          # List (paginated)
+POST /api/v1/resources          # Create
+GET  /api/v1/resources/{id}     # Get one
+PATCH /api/v1/resources/{id}    # Update
 ```'
 
 LINT_LANGUAGES="TypeScript/JS (eslint + prettier), JSON, YAML, Shell (shellcheck)"
