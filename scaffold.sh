@@ -846,9 +846,9 @@ clean_scaffold() {
     removed=$((removed + 1))
   fi
 
-  # scripts/ smoke tests (only scaffold-generated ones)
+  # scripts/ smoke tests and scaffold-generated scripts
   local script
-  for script in scripts/smoke-*.sh; do
+  for script in scripts/smoke-*.sh scripts/validate-cnp.sh scripts/verify-deploy.sh; do
     if [[ -f "$script" ]]; then
       rm -f "$script"
       printf "  %bremoved%b %s\n" "$RED" "$NC" "$script"
@@ -857,9 +857,9 @@ clean_scaffold() {
   done
 
   # Clean up empty dirs
-  rmdir docs/decisions 2>/dev/null
-  rmdir docs 2>/dev/null
-  rmdir scripts 2>/dev/null
+  rmdir docs/decisions 2>/dev/null || true
+  rmdir docs 2>/dev/null || true
+  rmdir scripts 2>/dev/null || true
 
   printf "\n%bDone.%b Removed %d scaffold files.\n\n" "$GREEN" "$NC" "$removed"
   exit 0
